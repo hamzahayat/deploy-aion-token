@@ -1,0 +1,27 @@
+{
+  "name": "deploy-aion-token",
+  "version": "1.0.0",
+  "description": "Deploying token on AION",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon --exec babel-node src/index.js",
+    "build": "babel src --out-dir dist",
+    "serve": "node dist/index.js"
+  },
+  "author": "Hamza Qaisrani",
+  "license": "MIT",
+  "dependencies": {
+    "aion-keystore": "0.0.2",
+    "aion-web3": "0.0.3",
+    "bignumber.js": "^7.2.1",
+    "request-promise": "^4.2.2"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.1.2",
+    "@babel/core": "^7.1.2",
+    "@babel/node": "^7.0.0",
+    "@babel/preset-env": "^7.1.0",
+    "babel-cli": "^6.26.0",
+    "nodemon": "^1.18.4"
+  }
+}
