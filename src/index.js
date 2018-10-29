@@ -107,7 +107,7 @@ const transferToken = async () => {
   );
 
   const toAddress = '0xa06eb1780f9e8c0c3a86158f55c315b60966d64a3020bcbe0e3572ee67e2ca51';
-  const amount = 10.1;
+  const amount = 10;
   const contractAddress = '0xa02210f678afce1cc5ce2eb57b5c6c12186742f71094761d7fbeea38dd3b0495';
 
   // Declare Contract Instance
