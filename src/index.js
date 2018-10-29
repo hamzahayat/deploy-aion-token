@@ -2,120 +2,14 @@
 import AionKeystore from 'aion-keystore';
 import Web3 from 'aion-web3';
 import { readFileSync } from 'fs';
-import BigNumber from 'bignumber.js';
+import { CONTRACT_ABI } from './contracts/AIWA_ABI.json';
+import { PRIVATE_KEY, SPECIAL_ADDRESS } from '../credentials.js';
 
 // Initialize web3
 const provider = new Web3.providers.HttpProvider('https://aion-mastery.jonpurdy.com');
 const web3 = new Web3(provider);
 
-const CONTRACT_ABI = [
-  {
-    outputs: [
-      {
-        name: '',
-        type: 'string'
-      }
-    ],
-    constant: true,
-    payable: false,
-    inputs: [],
-    name: 'name',
-    type: 'function'
-  },
-  {
-    outputs: [
-      {
-        name: '',
-        type: 'uint8'
-      }
-    ],
-    constant: true,
-    payable: false,
-    inputs: [],
-    name: 'decimals',
-    type: 'function'
-  },
-  {
-    outputs: [
-      {
-        name: '',
-        type: 'uint128'
-      }
-    ],
-    constant: true,
-    payable: false,
-    inputs: [],
-    name: 'totalSupply',
-    type: 'function'
-  },
-  {
-    outputs: [
-      {
-        name: '',
-        type: 'uint128'
-      }
-    ],
-    constant: true,
-    payable: false,
-    inputs: [
-      {
-        name: '_tokenHolder',
-        type: 'address'
-      }
-    ],
-    name: 'balanceOf',
-    type: 'function'
-  },
-  {
-    outputs: [],
-    constant: false,
-    payable: false,
-    inputs: [
-      { name: '_to', type: 'address' },
-      { name: '_amount', type: 'uint128' },
-      { name: '_userData', type: 'bytes' }
-    ],
-    name: 'send',
-    type: 'function'
-  },
-  {
-    outputs: [
-      {
-        name: '',
-        type: 'string'
-      }
-    ],
-    constant: true,
-    payable: false,
-    inputs: [],
-    name: 'symbol',
-    type: 'function'
-  },
-  {
-    outputs: [],
-    constant: false,
-    payable: false,
-    inputs: [
-      { name: '_from', type: 'address' },
-      { name: '_to', type: 'address' },
-      { name: '_amount', type: 'uint128' },
-      { name: '_userData', type: 'bytes' },
-      { name: '_operatorData', type: 'bytes' }
-    ],
-    name: 'operatorSend',
-    type: 'function'
-  },
-  {
-    outputs: [{ name: 'success', type: 'bool' }],
-    constant: false,
-    payable: false,
-    inputs: [{ name: '_to', type: 'address' }, { name: '_amount', type: 'uint128' }],
-    name: 'transfer',
-    type: 'function'
-  }
-];
-
-const init = async () => {
+const deployContract = async () => {
   // Import Solidiy Contract
   const solContract = readFileSync('src/contracts/ATSImpl.sol', {
     encoding: 'utf8'
@@ -124,7 +18,7 @@ const init = async () => {
   // Initilize Account
   const aionKeystore = new AionKeystore();
   const account = aionKeystore.privateKeyToAccount(
-    '0x5746bd483659b19d37a0724925972536b9625be0deb91f72550ab4fa403154920a984f798a95d1f45b6f31f0b15e00d993466036fe0c39962a69cc2bb3006b47' // Add Private Key of Account that will be used to deploy contract
+    PRIVATE_KEY // Add Private Key of Account that will be used to deploy contract
   );
 
   // Compile Contract
@@ -139,11 +33,11 @@ const init = async () => {
 
   // Get Contract Data
   const contractData = contract.new.getData(
-    'AIWA3', // Name
-    'AIWA', // Symbol
+    'Token Name', // Name
+    'TKN', // Symbol
     1, // Granularity
     200000, // Total Supply
-    '0xa09a2911ffcdc8724cfe13369534e3f33c07422d7c762b2dad0b1b3ba878ab04', // Special Address -> Account that will hold the total supply
+    SPECIAL_ADDRESS, // Special Address -> Account that will hold the total supply
     {
       data: contractCode
     }
@@ -201,7 +95,7 @@ const getTransactionObject = async (contractData, address) => {
   return transaction;
 };
 
-// init().catch(error => {
+// deployContract().catch(error => {
 //   console.log(error.message);
 // });
 
@@ -209,7 +103,7 @@ const transferToken = async () => {
   // Initilize Account
   const aionKeystore = new AionKeystore();
   const account = aionKeystore.privateKeyToAccount(
-    '0x5746bd483659b19d37a0724925972536b9625be0deb91f72550ab4fa403154920a984f798a95d1f45b6f31f0b15e00d993466036fe0c39962a69cc2bb3006b47' // Add Private Key of Account that will be used to deploy contract
+    PRIVATE_KEY // Add Private Key of Account that will be used to deploy contract
   );
 
   const toAddress = '0xa06eb1780f9e8c0c3a86158f55c315b60966d64a3020bcbe0e3572ee67e2ca51';
@@ -252,13 +146,6 @@ const transferToken = async () => {
   // Write to console
   console.log('Transaction Hash: ', transactionHash);
   console.log('Transaction Reciept: ', transactionReceipt);
-};
-
-const newTest = () => {
-  const transactionHash = '0x69f2211604485193eca9b4cb6b940a2e8c082ef874a3a4a0e74aa168d322984b';
-  const transactionReceipt = web3.eth.getTransaction(transactionHash);
-
-  console.log(transactionReceipt);
 };
 
 transferToken();
