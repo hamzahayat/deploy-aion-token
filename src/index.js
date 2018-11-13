@@ -145,4 +145,4 @@ deployContract().catch(error => {
   console.log(error.message);
 });
 
-transferToken();
+// transferToken();
