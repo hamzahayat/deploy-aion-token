@@ -4,5 +4,5 @@
 
 ## Getting Started
 
-- _Install Dependencies_`npm install`
+- Install Dependencies using `npm install`
 - Run `index.js` file using `npm run start`
