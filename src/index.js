@@ -2,8 +2,8 @@
 import AionKeystore from 'aion-keystore';
 import Web3 from 'aion-web3';
 import { readFileSync } from 'fs';
-import { CONTRACT_ABI } from './contracts/AIWA_ABI.json';
-import { PRIVATE_KEY, SPECIAL_ADDRESS } from '../credentials.js';
+import { CONTRACT_ABI } from './contracts/AIWA_ABI';
+import { PRIVATE_KEY } from '../credentials.js';
 
 // Initialize web3
 const provider = new Web3.providers.HttpProvider('https://aion-mastery.jonpurdy.com');
@@ -26,8 +26,6 @@ const deployContract = async () => {
   const contractAbi = compiledContract.ATSBase.info.abiDefinition;
   const contractCode = compiledContract.ATSBase.code;
 
-  console.log(contractCode);
-
   // Declare Contract
   const contract = web3.eth.contract(contractAbi);
 
@@ -35,9 +33,8 @@ const deployContract = async () => {
   const contractData = contract.new.getData(
     'Token Name', // Name
     'TKN', // Symbol
-    1, // Granularity
-    200000, // Total Supply
-    SPECIAL_ADDRESS, // Special Address -> Account that will hold the total supply
+    1, // Granularity, should be 1 by default
+    400000, // Total Supply
     {
       data: contractCode
     }
@@ -95,10 +92,6 @@ const getTransactionObject = async (contractData, address) => {
   return transaction;
 };
 
-// deployContract().catch(error => {
-//   console.log(error.message);
-// });
-
 const transferToken = async () => {
   // Initilize Account
   const aionKeystore = new AionKeystore();
@@ -147,5 +140,9 @@ const transferToken = async () => {
   console.log('Transaction Hash: ', transactionHash);
   console.log('Transaction Reciept: ', transactionReceipt);
 };
+
+deployContract().catch(error => {
+  console.log(error.message);
+});
 
 transferToken();

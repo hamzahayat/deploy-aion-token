@@ -88,8 +88,23 @@ interface ATS {
 
     /// Some functionality should still include a burn (for example slashing ERC20 tokens from a validator)
     function burn(uint128 amount, bytes holderData) public;
-
     function operatorBurn(address from, uint128 amount, bytes holderData, bytes operatorData) public;
+
+    /// @notice Interface for a bridge/relay to execute a `send`
+    /// @dev this name was suggested by Michael Kitchen, who suggested
+    /// it makes sense to thaw an token from solid to liquid
+    ///
+    /// @dev function is called by foreign entity to `thaw` tokens
+    /// to a particular user.
+    function thaw(address localRecipient, uint128 amount, bytes32 bridgeId, bytes bridgeData, bytes32 remoteSender, bytes32 remoteBridgeId, bytes remoteData) public;    
+    
+    /// @notice Interface for a user to execute a `freeze`, which essentially
+    /// is a functionality that locks the token (into the special address)
+    /// 
+    /// @dev function is called by local user to `freeze` tokens thereby
+    /// transferring them to another network.
+    function freeze(bytes32 remoteRecipient, uint128 amount, bytes32 bridgeId, bytes localData) public;
+    function operatorFreeze(address localSender, bytes32 remoteRecipient, uint128 amount, bytes32 bridgeId, bytes localData) public;
 
     /// Event to be emit at the time of contract creation. Rationale behind the event is a few things:
     ///
@@ -101,7 +116,7 @@ interface ATS {
     event Created(
         uint128 indexed     _totalSupply,
         /// This is a horrible name I know, up for debate
-        address indexed     _specialAddress);
+        address indexed     _creator);
 
     event Sent(
         address indexed     _operator,
@@ -110,6 +125,22 @@ interface ATS {
         uint128             _amount,
         bytes               _holderData,
         bytes               _operatorData);
+
+    event Thawed(
+        address indexed localRecipient,
+        uint128 amount,
+        bytes32 indexed bridgeId,
+        bytes bridgeData,
+        bytes32 indexed remoteSender,
+        bytes32 remoteBridgeId,
+        bytes remoteData);
+
+    event Froze(
+        address indexed localSender,
+        bytes32 indexed remoteRecipient,
+        uint128 amount,
+        bytes32 indexed bridgeId,
+        bytes localData);
 
     event Minted(
         address indexed     _operator,
@@ -276,7 +307,33 @@ interface TokenBridgeRegistryInterface {
     function transfer(bytes32 _foreignNetworkId, bytes32 _foreignRecipient, uint128 _amount, bytes _localData) public;
 }
 
-contract ATSBase is ATS, ERC20, ContractInterfaceImplementer {
+contract AionInterfaceRegistry {
+    function getManager(address target) public constant returns(address);
+    function setManager(address target, address manager) public;
+    function getInterfaceDelegate(address target, bytes32 interfaceHash) public constant returns (address);
+    function setInterfaceDelegate(address target, bytes32 interfaceHash, address delegate) public;
+}
+
+contract AionInterfaceImplementer {
+    // TODO: this needs to be deployed, this is just a placeholder address
+    AionInterfaceRegistry air = AionInterfaceRegistry(0xa0d270e7759e8fc020df5f1352bf4d329342c1bcdfe9297ef594fa352c7cab26);
+
+    function setInterfaceDelegate(string _interfaceLabel, address impl) internal {
+        bytes32 interfaceHash = sha3(_interfaceLabel);
+        air.setInterfaceDelegate(this, interfaceHash, impl);
+    }
+
+    function getInterfaceDelegate(address addr, string _interfaceLabel) internal constant returns(address) {
+        bytes32 interfaceHash = sha3(_interfaceLabel);
+        return air.getInterfaceDelegate(addr, interfaceHash);
+    }
+
+    function setDelegateManager(address _newManager) internal {
+        air.setManager(this, _newManager);
+    }
+}
+
+contract ATSBase is ATS, ERC20, AionInterfaceImplementer {
     using SafeMath for uint128;
 
     /* -- Constants -- */
@@ -290,7 +347,6 @@ contract ATSBase is ATS, ERC20, ContractInterfaceImplementer {
     string internal mSymbol;
     uint128 internal mGranularity;
     uint128 internal mTotalSupply;
-    address internal mSpecialAddress;
 
     mapping(address => uint128) internal mBalances;
     mapping(address => mapping(address => bool)) internal mAuthorized;
@@ -309,21 +365,24 @@ contract ATSBase is ATS, ERC20, ContractInterfaceImplementer {
         string _name,
         string _symbol,
         uint128 _granularity,
-        uint128 _totalSupply,
-        address _specialAddress
+        uint128 _totalSupply
     ) {
         require(_granularity >= 1);
         mName = _name;
         mSymbol = _symbol;
-        mGranularity = _granularity;
         mTotalSupply = _totalSupply;
-        mSpecialAddress = _specialAddress;
+        mGranularity = _granularity;
 
-        // initialize special address account
-        initializeSpecialAddress();
+        initialize(_totalSupply);
 
         // register onto CIR
-        // setInterfaceImplementation("ATS", this);
+        setInterfaceDelegate("AIP004Token", this);
+
+    }
+
+    function initialize(uint128 _totalSupply) internal {
+        mBalances[msg.sender] = _totalSupply;
+        Created(_totalSupply, msg.sender);
     }
 
     /* -- ERC777 Interface Implementation -- */
@@ -339,9 +398,6 @@ contract ATSBase is ATS, ERC20, ContractInterfaceImplementer {
 
     /// @return the total supply of the token
     function totalSupply() public constant returns (uint128) { return mTotalSupply; }
-
-    /// @return the special address of the token
-    function specialAddress() public constant returns (address) { return mSpecialAddress; }
 
     /// @notice Return the account balance of some account
     /// @param _tokenHolder Address for which the balance is returned
@@ -401,20 +457,6 @@ contract ATSBase is ATS, ERC20, ContractInterfaceImplementer {
 
     /* -- Helper Functions -- */
 
-    /// @notice Helper function that initializes the `specialAddress`
-    /// checks that the specialAddress is indeed not in the user space
-    /// and is in a pre-destined reserved space only available for
-    /// `non-user` addresses.
-    ///
-    /// @dev we don't apply checks for `totalSupply` here because
-    /// the user could want to set a supply of `0` tokens.
-    function initializeSpecialAddress() internal {
-        /// check that the used address is not in user space
-        // require(mSpecialAddress != zeroAddress);
-        mBalances[mSpecialAddress] = mTotalSupply;
-        Created(mTotalSupply, mSpecialAddress);
-    }
-
     /// @notice Internal function that ensures `_amount` is multiple of the granularity
     /// @param _amount The quantity that want's to be checked
     function requireMultiple(uint128 _amount) internal constant {
@@ -426,7 +468,9 @@ contract ATSBase is ATS, ERC20, ContractInterfaceImplementer {
     /// @return `true` if `_addr` is a regular address (not a contract)
     ///
     /// Ideally, we should propose a better system that extcodesize
-    /// TODO: CHANGE ME, going to require a resolution on best approach
+    ///
+    /// *** TODO: CHANGE ME, going to require a resolution on best approach ***
+    ///
     /// Given that we won't be able to detect code size.
     ///
     /// @param _addr The address to be checked
@@ -463,16 +507,16 @@ contract ATSBase is ATS, ERC20, ContractInterfaceImplementer {
     {
         requireMultiple(_amount);
 
-        // callSender(_operator, _from, _to, _amount, _userData, _operatorData);
+        callSender(_operator, _from, _to, _amount, _userData, _operatorData);
 
         require(_to != address(0));             // forbid sending to 0x0 (=burning)
-        require(_to != mSpecialAddress);         // forbid sending to special address (=locking)
+        require(_to != address(this));          // forbid sending to the contract itself
         require(mBalances[_from] >= _amount);   // ensure enough funds
 
         mBalances[_from] = mBalances[_from].sub(_amount);
         mBalances[_to] = mBalances[_to].add(_amount);
 
-        // callRecipient(_operator, _from, _to, _amount, _userData, _operatorData, _preventLocking);
+        callRecipient(_operator, _from, _to, _amount, _userData, _operatorData, _preventLocking);
 
         Sent(_operator, _from, _to, _amount, _userData, _operatorData);
     }
@@ -519,7 +563,7 @@ contract ATSBase is ATS, ERC20, ContractInterfaceImplementer {
     )
         internal
     {
-        address recipientImplementation = interfaceAddr(_to, "ATSTokenRecipient");
+        address recipientImplementation = getInterfaceDelegate(_to, "AIP004TokenRecipient");
         if (recipientImplementation != 0) {
             ATSTokenRecipient(recipientImplementation).tokensReceived(
                 _operator, _from, _to, _amount, _userData, _operatorData);
@@ -548,13 +592,46 @@ contract ATSBase is ATS, ERC20, ContractInterfaceImplementer {
     )
         internal
     {
-        address senderImplementation = interfaceAddr(_from, "ATSTokenSender");
+        address senderImplementation = getInterfaceDelegate(_from, "AIP004TokenSender");
         if (senderImplementation == 0) { return; }
         ATSTokenSender(senderImplementation).tokensToSend(_operator, _from, _to, _amount, _userData, _operatorData);
     }
 
     function liquidSupply() public constant returns (uint128) {
-        return mTotalSupply.sub(balanceOf(mSpecialAddress));
+        return mTotalSupply.sub(balanceOf(this));
+    }
+
+
+    /* -- Cross Chain Functionality -- */
+
+    function thaw(
+        address localRecipient,
+        uint128 amount,
+        bytes32 bridgeId,
+        bytes bridgeData,
+        bytes32 remoteSender,
+        bytes32 remoteBridgeId,
+        bytes remoteData)
+    public {
+
+    }
+
+    function freeze(
+        bytes32 remoteRecipient,
+        uint128 amount,
+        bytes32 bridgeId,
+        bytes localData)
+    public {
+
+    }
+
+    function operatorFreeze(address localSender,
+        bytes32 remoteRecipient,
+        uint128 amount,
+        bytes32 bridgeId,
+        bytes localData)
+    public {
+
     }
 
     /* -- ERC20 Functionality -- */
