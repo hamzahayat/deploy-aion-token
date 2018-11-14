@@ -2,8 +2,8 @@
 import AionKeystore from 'aion-keystore';
 import Web3 from 'aion-web3';
 import { readFileSync } from 'fs';
-import { CONTRACT_ABI } from './contracts/AIWA_ABI';
-import { PRIVATE_KEY } from '../credentials.js';
+import { CONTRACT_ABI } from './contracts/ATS_ABI';
+import { PRIVATE_KEY, TO_ADDRESS, CONTRACT_ADDRESS } from '../credentials.js'; // This file has purposefully been omitted on github repo
 
 // Initialize web3
 const provider = new Web3.providers.HttpProvider('https://aion-mastery.jonpurdy.com');
@@ -55,7 +55,6 @@ const deployContract = async () => {
   const transactionReceipt = getTransactionReceipt(transactionHash);
 
   // Write to console
-  console.log('Transaction Hash: ', transactionHash);
   console.log('Contract Address: ', transactionReceipt.contractAddress);
 };
 
@@ -99,9 +98,9 @@ const transferToken = async () => {
     PRIVATE_KEY // Add Private Key of Account that will be used to deploy contract
   );
 
-  const toAddress = '0xa06eb1780f9e8c0c3a86158f55c315b60966d64a3020bcbe0e3572ee67e2ca51';
+  const toAddress = TO_ADDRESS;
   const amount = 10;
-  const contractAddress = '0xa02210f678afce1cc5ce2eb57b5c6c12186742f71094761d7fbeea38dd3b0495';
+  const contractAddress = CONTRACT_ADDRESS;
 
   // Declare Contract Instance
   const tokenContract = web3.eth.contract(CONTRACT_ABI).at(contractAddress);
