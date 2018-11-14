@@ -6,3 +6,7 @@
 
 - Install Dependencies using `npm install`
 - Run `index.js` file using `npm run start`
+
+### NOTE:
+
+Be sure to add your own credentials into a `credentials.js` file.
