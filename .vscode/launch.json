@@ -9,11 +9,12 @@
       "request": "launch",
       "name": "Debug",
       "program": "${workspaceFolder}/src/index.js",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/babel-node",
+      "runtimeExecutable": "${workspaceRoot}\\node_modules\\.bin\\babel-node",
       "runtimeArgs": ["--nolazy"],
       "env": {
         "BABEL_ENV": "debug"
-      }
+      },
+      "console": "internalConsole"
     }
   ]
 }

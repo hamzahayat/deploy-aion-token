@@ -1,12 +1,12 @@
 // Declare Imports
-import AionKeystore from 'aion-keystore';
+import AionKeystore from 'aion-web3-eth-accounts';
 import Web3 from 'aion-web3';
 import { readFileSync } from 'fs';
 import { CONTRACT_ABI } from './contracts/ATS_ABI';
-import { PRIVATE_KEY, TO_ADDRESS, CONTRACT_ADDRESS } from '../credentials.js'; // This file has purposefully been omitted on github repo
+import { PRIVATE_KEY, TO_ADDRESS, CONTRACT_ADDRESS, NODESMITH_API } from '../credentials.js'; // This file has purposefully been omitted on github repo
 
 // Initialize web3
-const provider = new Web3.providers.HttpProvider('https://aion-mastery.jonpurdy.com');
+const provider = new Web3.providers.HttpProvider(NODESMITH_API);
 const web3 = new Web3(provider);
 
 const deployContract = async () => {
@@ -16,76 +16,52 @@ const deployContract = async () => {
   });
 
   // Initilize Account
-  const aionKeystore = new AionKeystore();
+  const aionKeystore = new AionKeystore(NODESMITH_API);
   const account = aionKeystore.privateKeyToAccount(
     PRIVATE_KEY // Add Private Key of Account that will be used to deploy contract
   );
 
   // Compile Contract
-  const compiledContract = web3.eth.compile.solidity(solContract);
+  const compiledContract = await web3.eth.compileSolidity(solContract);
   const contractAbi = compiledContract.ATSBase.info.abiDefinition;
   const contractCode = compiledContract.ATSBase.code;
 
   // Declare Contract
-  const contract = web3.eth.contract(contractAbi);
+  const contract = new web3.eth.Contract(contractAbi);
 
-  // Get Contract Data
-  const contractData = contract.new.getData(
-    'Token Name', // Name
-    'TKN', // Symbol
-    1, // Granularity, should be 1 by default
-    400000, // Total Supply
-    {
-      data: contractCode
-    }
-  );
+  // Deploy Contract
+  const deployableContract = await contract.deploy({
+    data: contractCode,
+    arguments: ['Token Name', 'TKN', 1, 40000]
+  });
+
+  const contractData = deployableContract.encodeABI();
 
   // Get Transaction
   const transaction = await getTransactionObject(contractData, account.address);
 
   // Sign Transaction
   const signedTransaction = await account.signTransaction(transaction);
+  console.log(signedTransaction.rawTransaction);
 
   // Send Raw Transaction
-  const transactionHash = await web3.eth.sendRawTransaction(signedTransaction.rawTransaction);
+  const transactionReceipt = await web3.eth.sendSignedTransaction(signedTransaction.rawTransaction);
 
-  console.log('Transaction Hash: ', transactionHash);
-
-  // Poll Transaction and get Transaction Receipt
-  const transactionReceipt = getTransactionReceipt(transactionHash);
-
-  // Write to console
-  console.log('Contract Address: ', transactionReceipt.contractAddress);
-};
-
-const getTransactionReceipt = transactionHash => {
-  let transactionReceipt = null;
-
-  process.stdout.write('Transaction Pending');
-
-  do {
-    transactionReceipt = web3.eth.getTransactionReceipt(transactionHash);
-    process.stdout.write('...');
-  } while (transactionReceipt == null);
-
-  console.log('Transaction Complete!');
-
-  return transactionReceipt;
+  console.log('Transaction Receipt : ', transactionReceipt);
 };
 
 const getTransactionObject = async (contractData, address) => {
   // Get Gas Estimates and Nonce
-  const nonce = web3.eth.getTransactionCount(address);
-  const gasPrice = web3.eth.gasPrice;
-  // const gas = await web3.eth.estimateGas({ data: contractData });
+  const nonce = await web3.eth.getTransactionCount(address);
+  const gasPrice = await web3.eth.getGasPrice();
+  // const gas = await deployableContract.estimateGas();
 
   // Declare Transaction Obj
   const transaction = {
     nonce,
     gasPrice,
-    gas: 2200000,
-    data: contractData,
-    timestamp: Date.now() * 1000
+    gas: 2000000,
+    data: contractData
   };
 
   return transaction;
@@ -93,55 +69,49 @@ const getTransactionObject = async (contractData, address) => {
 
 const transferToken = async () => {
   // Initilize Account
-  const aionKeystore = new AionKeystore();
+  const aionKeystore = new AionKeystore(NODESMITH_API);
   const account = aionKeystore.privateKeyToAccount(
     PRIVATE_KEY // Add Private Key of Account that will be used to deploy contract
   );
 
   const toAddress = TO_ADDRESS;
   const amount = 10;
-  const contractAddress = CONTRACT_ADDRESS;
 
   // Declare Contract Instance
-  const tokenContract = web3.eth.contract(CONTRACT_ABI).at(contractAddress);
+  const tokenContract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
 
   // Get Contract Data
-  const methodData = tokenContract.transfer.getData(toAddress, amount);
+  const transferMethod = tokenContract.methods.transfer(toAddress, amount);
 
   // Get Nonce and Gas details
-  const gas = await tokenContract.transfer.estimateGas(toAddress, amount, {
+  const gas = await transferMethod.estimateGas(toAddress, amount, {
     from: account.address
   });
-  const gasPrice = web3.eth.gasPrice;
-  const nonce = web3.eth.getTransactionCount(account.address);
+  const gasPrice = await web3.eth.getGasPrice();
+  const nonce = await web3.eth.getTransactionCount(account.address);
 
   // Declare Transaction
   const transaction = {
-    to: contractAddress,
+    to: CONTRACT_ADDRESS,
     nonce,
     gasPrice,
     gas,
-    data: methodData,
+    data: transferMethod.encodeABI(),
     timestamp: Date.now() * 1000
   };
-
-  console.log(methodData);
 
   // Sign Transaction
   const signedTransaction = await account.signTransaction(transaction);
 
   // Send Transaction
-  const transactionHash = await web3.eth.sendRawTransaction(signedTransaction.rawTransaction);
-
-  const transactionReceipt = getTransactionReceipt(transactionHash);
+  const transactionReceipt = await web3.eth.sendSignedTransaction(signedTransaction.rawTransaction);
 
   // Write to console
-  console.log('Transaction Hash: ', transactionHash);
   console.log('Transaction Reciept: ', transactionReceipt);
 };
 
-deployContract().catch(error => {
-  console.log(error.message);
-});
+// deployContract().catch(error => {
+//   console.log(error.message);
+// });
 
 // transferToken();
