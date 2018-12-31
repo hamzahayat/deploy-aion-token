@@ -32,35 +32,37 @@ const deployContract = async () => {
   // Deploy Contract
   const deployableContract = await contract.deploy({
     data: contractCode,
-    arguments: ['Token Name', 'TKN', 1, 40000]
+    arguments: ['TokenName', 'SYMBOL', 1, '10000000000000000000000000000000000000000000000000']
   });
 
   const contractData = deployableContract.encodeABI();
 
   // Get Transaction
-  const transaction = await getTransactionObject(contractData, account.address);
+  const transaction = await getTransactionObject(contractData, account.address, deployableContract);
 
   // Sign Transaction
   const signedTransaction = await account.signTransaction(transaction);
-  console.log(signedTransaction.rawTransaction);
+  console.log('Transaction signed!');
 
   // Send Raw Transaction
   const transactionReceipt = await web3.eth.sendSignedTransaction(signedTransaction.rawTransaction);
 
   console.log('Transaction Receipt : ', transactionReceipt);
+  console.log('Contract Address : ', transactionReceipt.contractAddress);
 };
 
-const getTransactionObject = async (contractData, address) => {
+const getTransactionObject = async (contractData, address, deployableContract) => {
   // Get Gas Estimates and Nonce
   const nonce = await web3.eth.getTransactionCount(address);
   const gasPrice = await web3.eth.getGasPrice();
-  // const gas = await deployableContract.estimateGas();
+  const gas = await deployableContract.estimateGas();
 
   // Declare Transaction Obj
   const transaction = {
+    from: address,
     nonce,
     gasPrice,
-    gas: 2000000,
+    gas,
     data: contractData
   };
 
@@ -110,8 +112,8 @@ const transferToken = async () => {
   console.log('Transaction Reciept: ', transactionReceipt);
 };
 
-// deployContract().catch(error => {
-//   console.log(error.message);
-// });
+deployContract().catch(error => {
+  console.log(error.message);
+});
 
 // transferToken();

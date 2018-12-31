@@ -377,7 +377,6 @@ contract ATSBase is ATS, ERC20, AionInterfaceImplementer {
 
         // register onto CIR
         setInterfaceDelegate("AIP004Token", this);
-
     }
 
     function initialize(uint128 _totalSupply) internal {

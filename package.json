@@ -11,9 +11,10 @@
   "author": "Hamza Qaisrani",
   "license": "MIT",
   "dependencies": {
-    "aion-web3": "^1.1.0",
+    "aion-web3": "^1.1.4",
     "aion-web3-eth-accounts": "^1.1.0",
-    "bignumber.js": "^7.2.1"
+    "bignumber.js": "^7.2.1",
+    "server": "^1.0.18"
   },
   "devDependencies": {
     "@babel/cli": "^7.1.2",
