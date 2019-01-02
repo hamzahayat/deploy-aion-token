@@ -5,6 +5,7 @@ npm-debug.log
 build/
 dist/
 credentials.js
+test.js
 package-lock.json
 
 *.zip

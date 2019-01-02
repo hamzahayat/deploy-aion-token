@@ -62,7 +62,7 @@ const getTransactionObject = async (contractData, address, deployableContract) =
     from: address,
     nonce,
     gasPrice,
-    gas,
+    gas: 2000000,
     data: contractData
   };
 
